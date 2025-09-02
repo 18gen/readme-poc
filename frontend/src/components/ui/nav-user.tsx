@@ -17,6 +17,7 @@ import {
   DropdownMenuSub,
   DropdownMenuSubTrigger,
   DropdownMenuPortal,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
@@ -40,7 +41,7 @@ export function NavUser() {
           <DropdownMenuContent
             side="top"
             align="start"
-            className="w-52"
+            className="w-48"
           >
             <DropdownMenuLabel>My account</DropdownMenuLabel>
             <DropdownMenuGroup>
@@ -56,7 +57,7 @@ export function NavUser() {
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
-                  <DropdownMenuContent className="w-[--radix-popper-anchor-width]">
+                  <DropdownMenuSubContent>
                     <DropdownMenuRadioGroup
                       value={theme as "light" | "dark" | "system" | undefined}
                       onValueChange={(v) =>
@@ -71,7 +72,7 @@ export function NavUser() {
                         </DropdownMenuRadioItem>
                       ))}
                     </DropdownMenuRadioGroup>
-                  </DropdownMenuContent>
+                  </DropdownMenuSubContent>
                 </DropdownMenuPortal>
               </DropdownMenuSub>
             </DropdownMenuGroup>

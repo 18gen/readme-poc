@@ -1,74 +1,84 @@
-// nav-user.tsx
+// src/components/ui/nav-user.tsx
 "use client";
 
-import { User2, Check } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useSession, signIn, signOut } from "next-auth/react";
+import { User2, LogIn, LogOut, Github } from "lucide-react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuGroup,
-  DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-  DropdownMenuSubContent,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuRadioGroup, DropdownMenuRadioItem,
+  DropdownMenuGroup, DropdownMenuSub, DropdownMenuSubTrigger,
+  DropdownMenuPortal, DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import {
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { useTheme } from "next-themes";
 
 export function NavUser() {
+  const { data: session, status } = useSession();
   const { theme, setTheme } = useTheme();
+  const loading = status === "loading";
+
+  // If NOT signed in: clicking the button goes straight to GitHub sign-in.
+  if (!session && !loading) {
+    return (
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            className="h-8"
+            onClick={() => signIn("github", { callbackUrl: "/navi" })}
+            aria-label="Sign in with GitHub"
+          >
+            <Github className="mr-2 h-4 w-4" />
+            Sign in with GitHub
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+    );
+  }
+
+  // Signed in (or loading): show dropdown with name + actions
+  const username = session?.user?.name ?? "User";
+  const email = session?.user?.email ?? "";
 
   return (
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton className="h-8 pointer-events-auto">
-              <User2 /> Username
+            <SidebarMenuButton className="h-8">
+              <User2 className="mr-2 h-4 w-4" />
+              {loading ? "Loading..." : username}
             </SidebarMenuButton>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent
-            side="top"
-            align="start"
-            className="w-48"
-          >
-            <DropdownMenuLabel>My account</DropdownMenuLabel>
+          <DropdownMenuContent side="top" align="start" className="w-56">
+            <DropdownMenuLabel>
+              {username}
+              {email ? <div className="text-xs text-muted-foreground">{email}</div> : null}
+            </DropdownMenuLabel>
+
+            <DropdownMenuSeparator />
+
             <DropdownMenuGroup>
-              <DropdownMenuItem>
+              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
                 Profile
-                <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
               </DropdownMenuItem>
             </DropdownMenuGroup>
 
-            {/* Theme section inside the same menu */}
             <DropdownMenuSeparator />
+
             <DropdownMenuGroup>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger>Theme</DropdownMenuSubTrigger>
                 <DropdownMenuPortal>
                   <DropdownMenuSubContent>
                     <DropdownMenuRadioGroup
-                      value={theme as "light" | "dark" | "system" | undefined}
-                      onValueChange={(v) =>
-                        setTheme(v as "light" | "dark" | "system")
-                      }
+                      value={(theme as "system" | "light" | "dark") ?? "system"}
+                      onValueChange={(v) => setTheme(v as any)}
                     >
                       {["system", "dark", "light"].map((opt) => (
                         <DropdownMenuRadioItem key={opt} value={opt}>
-                          <span className="flex items-center justify-between">
-                            <span className="capitalize">{opt}</span>
-                          </span>
+                          <span className="capitalize">{opt}</span>
                         </DropdownMenuRadioItem>
                       ))}
                     </DropdownMenuRadioGroup>
@@ -76,10 +86,17 @@ export function NavUser() {
                 </DropdownMenuPortal>
               </DropdownMenuSub>
             </DropdownMenuGroup>
+
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+
+            <DropdownMenuItem
+              onSelect={(e) => {
+                e.preventDefault();
+                signOut({ callbackUrl: "/" });
+              }}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
               Log out
-              <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

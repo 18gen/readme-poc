@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Code2, User, BookOpen } from "lucide-react";
+import { Code2, User, BookOpen, Pickaxe } from "lucide-react";
 import { NavMain } from "@/components/ui/nav-main";
 import { NavUser } from "@/components/ui/nav-user";
 import {
@@ -20,6 +20,7 @@ import {
 const data = {
   navMain: [
     { title: "プロファイル", url: "/navi", icon: User, items: [] },
+    { title: "ビルド / デプロイ", url: "/build", icon: Pickaxe, items: [] },
     {
       title: "ドキュメント",
       url: "/#",

@@ -130,10 +130,16 @@ export class Runner {
       // Build if build command exists
       if (appInfo.buildCmd) {
         onLog(`Building application...`);
-        execSync(appInfo.buildCmd, { 
-          cwd: workdir, 
-          stdio: 'pipe',
-          env: { ...process.env, ...env }
+        const childEnv = { ...process.env, ...env };
+        // ユーザーが環境変数に NODE_ENV を入れていても無視する
+        delete (childEnv as any).NODE_ENV;
+        // Next.js は build 時に production を期待
+        childEnv.NODE_ENV = "production";
+
+        execSync(appInfo.buildCmd, {
+          cwd: workdir,
+          stdio: "pipe",
+          env: childEnv,
         });
       }
       

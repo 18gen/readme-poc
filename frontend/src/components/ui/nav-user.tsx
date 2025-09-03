@@ -11,7 +11,9 @@ import {
   DropdownMenuPortal, DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useTheme } from "next-themes";
+import { useEffect } from "react";
 
 export function NavUser() {
   const { data: session, status } = useSession();
@@ -36,9 +38,11 @@ export function NavUser() {
     );
   }
 
-  // Signed in (or loading): show dropdown with name + actions
   const username = session?.user?.name ?? "User";
   const email = session?.user?.email ?? "";
+  const userImage = session?.user?.image ?? "";
+
+  console.log("Session:", session);
 
   return (
     <SidebarMenu>
@@ -46,8 +50,18 @@ export function NavUser() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton className="h-8">
-              <User2 className="mr-2 h-4 w-4" />
-              {loading ? "Loading..." : username}
+              {/* <User2 className="mr-2 h-4 w-4" /> */}
+              {loading ? "Loading..." : (
+                <>
+                  <Avatar>
+                    <AvatarImage src={userImage} />
+                    <AvatarFallback>CN</AvatarFallback>
+                  </Avatar>
+                  {username}
+                </>
+                )
+                }
+              
             </SidebarMenuButton>
           </DropdownMenuTrigger>
 

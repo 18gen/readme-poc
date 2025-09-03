@@ -27,7 +27,13 @@ export function NavUser() {
         <SidebarMenuItem>
           <SidebarMenuButton
             className="h-8"
-            onClick={() => signIn("github", { callbackUrl: "/navi" })}
+            onClick={() =>
+              signIn("github", {
+                callbackUrl: "/build",
+                // Force GitHub to re-show the consent screen and upgrade scopes
+                prompt: "consent",
+              })
+            }
             aria-label="Sign in with GitHub"
           >
             <Github className="mr-2 h-4 w-4" />

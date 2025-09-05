@@ -16,10 +16,15 @@ export function PreviewFrame({ deploymentId }: { deploymentId: string }) {
     (async () => {
       while (alive && status!=="running" && status!=="stopped") {
         try {
-          const ping = await fetch(proxyRoot, { method: "GET", cache: "no-store" });
-          if (ping.ok || ping.status===301 || ping.status===302) { setSrc(proxyRoot); setStatus("running"); break; }
-        } catch {}
-        await new Promise(r => setTimeout(r, 900));
+          const res = await fetch(proxyRoot, { method: "GET", cache: "no-store" });
+          if (res.ok || res.status===301 || res.status===302) { setSrc(proxyRoot); setStatus("running"); break; }
+          if (res.status === 503) {
+            // 503 のときは meta を取りに行き、原因を出すと捗ります（任意）
+            const meta = await fetch(`/api/deployments/${deploymentId}/meta`, { cache: "no-store" }).then(r=>r.json()).catch(()=>null);
+            console.warn("proxy 503", meta);
+          }
+        } catch (e) {}
+        await new Promise(r => setTimeout(r, 1000));
       }
     })();
     return () => { alive = false; };

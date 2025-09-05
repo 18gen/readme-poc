@@ -3,20 +3,47 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { getJSON } from "@/lib/s3";
 
-async function handle(req: Request, id: string) {
-  const meta = await getJSON<any>(process.env.AWS_S3_BUILD_BUCKET!, `meta/${id}.json`);
-  if (!meta?.hostPort) return NextResponse.json({ ok: false, error: "not running" }, { status: 503 });
+async function resolveHostPort(id: string) {
+  // ① DB を一次ソースに
+  try {
+    const dep = await prisma.deployment.findUnique({
+      where: { id },
+      select: { hostPort: true, status: true },
+    });
+    if (dep?.hostPort) return { hostPort: dep.hostPort, source: "db", status: dep.status };
+  } catch {}
 
-  const upstream = new URL(`http://127.0.0.1:${meta.hostPort}/`);
-  const init: RequestInit = { method: req.method, redirect: "manual" as any };
-  const hopByHop = new Set(["connection","keep-alive","proxy-authenticate","proxy-authorization","te","trailers","transfer-encoding","upgrade","host","accept-encoding"]);
-  const hh = new Headers();
-  req.headers.forEach((v,k)=>{ if(!hopByHop.has(k.toLowerCase())) hh.set(k,v); });
-  init.headers = hh;
-  if (req.method !== "GET" && req.method !== "HEAD") {
-    init.body = await req.arrayBuffer();
+  // ② S3 をフォールバックに
+  try {
+    const meta = await getJSON<any>(process.env.AWS_S3_BUILD_BUCKET!, `meta/${id}.json`);
+    if (meta?.hostPort) return { hostPort: meta.hostPort, source: "s3", status: meta.status };
+  } catch {}
+
+  return null;
+}
+
+async function handle(request: Request, id: string) {
+  const resolved = await resolveHostPort(id);
+  if (!resolved) {
+    return NextResponse.json({ ok: false, error: "deployment not running (no hostPort in DB/S3)" }, { status: 503 });
+  }
+
+  const upstream = new URL(`http://127.0.0.1:${resolved.hostPort}/`);
+  const init: RequestInit = { method: request.method, redirect: "manual" as any };
+
+  const hopByHop = new Set([
+    "connection","keep-alive","proxy-authenticate","proxy-authorization",
+    "te","trailers","transfer-encoding","upgrade","host","accept-encoding"
+  ]);
+  const headers = new Headers();
+  request.headers.forEach((v,k)=>{ if(!hopByHop.has(k.toLowerCase())) headers.set(k,v); });
+  init.headers = headers;
+
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    init.body = await request.arrayBuffer();
   }
 
   const res = await fetch(upstream, init);
@@ -25,7 +52,10 @@ async function handle(req: Request, id: string) {
   out.delete("content-security-policy");
   const loc = out.get("location");
   if (loc) {
-    try { const u = new URL(loc, upstream); out.set("location", `/api/proxy/${id}${u.pathname}${u.search}`); } catch {}
+    try {
+      const u = new URL(loc, upstream);
+      out.set("location", `/api/proxy/${id}${u.pathname}${u.search}`);
+    } catch {}
   }
   return new NextResponse(res.body, { status: res.status, headers: out });
 }

@@ -1,106 +1,66 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/auth';
-import { prisma } from '@/lib/prisma';
+import "server-only";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-interface SessionWithToken {
-  accessToken?: string;
-}
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ buildId: string }> }
-) {
-  try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !(session as SessionWithToken).accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const { buildId } = await params;
-    
-    // Verify build exists
-    const build = await prisma.build.findUnique({
-      where: { id: buildId }
-    });
-    
-    if (!build) {
-      return NextResponse.json(
-        { error: 'Build not found' }, 
-        { status: 404 }
-      );
-    }
-    
-    // Set up SSE headers
-    const headers = {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Cache-Control'
-    };
-    
-    const stream = new ReadableStream({
-      start(controller) {
-        const keepAliveInterval = setInterval(() => {
-          controller.enqueue(new TextEncoder().encode(':\n\n'));
-        }, 15000);
-        
-        const sendEvent = (event: string, data: Record<string, unknown>) => {
-          const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-          controller.enqueue(new TextEncoder().encode(message));
-        };
-        
-        // Send initial status
-        sendEvent('status', { 
-          status: build.status,
-          logs: build.logs 
-        });
-        
-        // Poll for updates
-        const pollInterval = setInterval(async () => {
-          try {
-            const updatedBuild = await prisma.build.findUnique({
-              where: { id: buildId },
-              include: { deployment: true }
-            });
-            
-            if (updatedBuild) {
-              // Send status update
-              sendEvent('status', {
-                status: updatedBuild.status,
-                logs: updatedBuild.logs,
-                deployment: updatedBuild.deployment
-              });
-              
-              // If build is complete, stop polling
-              if (['SUCCEEDED', 'FAILED'].includes(updatedBuild.status)) {
-                clearInterval(pollInterval);
-                clearInterval(keepAliveInterval);
-                controller.close();
-              }
-            }
-          } catch (error) {
-            console.error('Error polling build status:', error);
+export async function GET(_req: Request, { params }: { params: { buildId: string } }) {
+  const buildId = params.buildId;
+  if (!buildId) return NextResponse.json({ error: "buildId required" }, { status: 400 });
+
+  const headers = new Headers({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no"
+  });
+
+  const stream = new ReadableStream({
+    start(controller) {
+      const enc = new TextEncoder();
+      const send = (event: string, data: unknown) => {
+        controller.enqueue(enc.encode(`event: ${event}\n`));
+        controller.enqueue(enc.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
+
+      let closed = false;
+      (async () => {
+        // Initial snapshot
+        let prevLogs = "";
+        try {
+          const b = await prisma.build.findUnique({ where: { id: buildId }, include: { deployment: true } });
+          if (b) {
+            prevLogs = b.logs || "";
+            send("status", { status: b.status, logs: prevLogs, deployment: b.deployment });
+          } else {
+            send("status", { status: "UNKNOWN", logs: "" });
           }
-        }, 1000);
-        
-        // Cleanup on close
-        request.signal.addEventListener('abort', () => {
-          clearInterval(pollInterval);
-          clearInterval(keepAliveInterval);
-          controller.close();
-        });
-      }
-    });
-    
-    return new Response(stream, { headers });
-  } catch (error) {
-    console.error('Failed to stream build:', error);
-    return NextResponse.json(
-      { error: 'Failed to stream build' }, 
-      { status: 500 }
-    );
-  }
+        } catch (e) {
+          send("error", { message: (e as any)?.message || "prisma error" });
+        }
+
+        while (!closed) {
+          await new Promise(r => setTimeout(r, 600));
+          try {
+            const b = await prisma.build.findUnique({ where: { id: buildId }, include: { deployment: true } });
+            if (!b) continue;
+            const curLogs = b.logs || "";
+            if (curLogs.length !== prevLogs.length) {
+              send("logs", { append: curLogs.slice(prevLogs.length) });
+              prevLogs = curLogs;
+            }
+            send("status", { status: b.status, deployment: b.deployment });
+            if (b.status === "SUCCEEDED" || b.status === "FAILED") break;
+          } catch (e) {
+            send("error", { message: (e as any)?.message || "poll error" });
+          }
+        }
+        controller.close();
+      })();
+    },
+    cancel() {}
+  });
+
+  return new Response(stream, { headers });
 }

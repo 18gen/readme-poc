@@ -1,30 +1,63 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getToken } from "next-auth/jwt";
-import { githubClient } from "@/lib/github";
+import "server-only";
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const owner = searchParams.get("owner");
-    const repo = searchParams.get("repo");
+import { NextResponse } from "next/server";
 
-    if (!owner || !repo) {
-      return NextResponse.json({ error: "Missing owner/repo" }, { status: 400 });
-    }
+const GH = "https://api.github.com";
 
-    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-    const accessToken = (token as any)?.accessToken as string | undefined;
-    if (!accessToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const octokit = githubClient(accessToken);
-    const { data } = await octokit.rest.repos.listBranches({ owner, repo, per_page: 100 });
-
-    const formatted = data.map((b) => ({ name: b.name, commit: { sha: b.commit?.sha ?? "" } }));
-    return NextResponse.json(formatted);
-  } catch (err) {
-    console.error("Failed to fetch branches:", err);
-    return NextResponse.json({ error: "Failed to fetch branches" }, { status: 500 });
+async function fetchJSON(url: string, token?: string) {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "readme-mvp",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Accept: "application/vnd.github+json",
+    },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`GitHub ${res.status}: ${text || url}`);
   }
+  return res.json();
+}
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const owner = url.searchParams.get("owner") || "";
+  const repo  = url.searchParams.get("repo")  || "";
+  if (!owner || !repo) {
+    return NextResponse.json({ ok:false, error:"owner/repo required" }, { status: 400 });
+  }
+
+  const token = process.env.GITHUB_TOKEN; // optional but recommended
+  // 1) default branch
+  const repoInfo = await fetchJSON(`${GH}/repos/${owner}/${repo}`, token);
+  const defaultBranch = repoInfo?.default_branch || "main";
+
+  // 2) branches (handle pagination up to ~300 for MVP)
+  const branches: Array<{ name:string; commit:{ sha:string } }> = [];
+  let page = 1;
+  while (page <= 3) {
+    const list = await fetchJSON(
+      `${GH}/repos/${owner}/${repo}/branches?per_page=100&page=${page}`,
+      token
+    );
+    if (!Array.isArray(list) || list.length === 0) break;
+    list.forEach((b: any) => branches.push({ name: b.name, commit: { sha: b?.commit?.sha } }));
+    if (list.length < 100) break;
+    page++;
+  }
+
+  // ensure default first, unique by name
+  const seen = new Set<string>();
+  const ordered = [
+    ...branches.filter(b => b.name === defaultBranch),
+    ...branches.filter(b => b.name !== defaultBranch),
+  ].filter(b => (seen.has(b.name) ? false : (seen.add(b.name), true)));
+
+  return NextResponse.json(
+    { ok: true, defaultBranch, branches: ordered },
+    { headers: { "Cache-Control": "no-store" } }
+  );
 }

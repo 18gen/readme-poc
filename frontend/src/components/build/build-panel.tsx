@@ -232,8 +232,8 @@ export function BuildPanel({ projectId, owner, repo, defaultBranch, currentDeplo
 
       {/* Deployment Info */}
       {currentDeployment && currentDeployment.status === 'RUNNING' && (
-        <div className="p-6 border rounded-lg bg-green-50 border-green-200">
-          <h3 className="text-lg font-medium text-green-800 mb-2">デプロイメント情報</h3>
+        <div className="p-6 border rounded-lg">
+          <h3 className="text-lg font-medium mb-2">デプロイメント情報</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium">ステータス:</span>

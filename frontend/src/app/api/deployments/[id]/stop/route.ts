@@ -1,68 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/auth';
-import { prisma } from '@/lib/prisma';
-import { runner } from '@/lib/runner';
+import "server-only";
+export const runtime = "nodejs";
 
-interface SessionWithToken {
-  accessToken?: string;
-}
+import { NextResponse } from "next/server";
+import { dockerRunner } from "@/lib/docker-runner";
+import { putText } from "@/lib/s3";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_: Request, { params }: { params: { id: string } }) {
+  const id = params.id;
+  const bucket = process.env.AWS_S3_BUILD_BUCKET!;
+  const container = `readmectl-${id.toLowerCase().replace(/[^a-z0-9_.-]/g, "")}`;
+
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session || !(session as SessionWithToken).accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const { id } = await params;
-    
-    // Get deployment
-    const deployment = await prisma.deployment.findUnique({
-      where: { id },
-      include: { project: true }
-    });
-    
-    if (!deployment) {
-      return NextResponse.json(
-        { error: 'Deployment not found' }, 
-        { status: 404 }
-      );
-    }
-    
-    if (deployment.status !== 'RUNNING') {
-      return NextResponse.json(
-        { error: 'Deployment is not running' }, 
-        { status: 400 }
-      );
-    }
-    
-    if (!deployment.pid) {
-      return NextResponse.json(
-        { error: 'No process ID found' }, 
-        { status: 400 }
-      );
-    }
-    
-    // Stop the process
-    await runner.stopProcess(deployment.pid);
-    
-    // Update deployment status
-    await prisma.deployment.update({
-      where: { id },
-      data: { status: 'STOPPED' }
-    });
-    
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('Failed to stop deployment:', error);
-    return NextResponse.json(
-      { error: 'Failed to stop deployment' }, 
-      { status: 500 }
-    );
+    dockerRunner.stop(container);
+    await putText(bucket, `meta/${id}.json`, JSON.stringify({ deploymentId: id, status: "stopped" }), "application/json");
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message ?? "stop failed" }, { status: 500 });
   }
 }

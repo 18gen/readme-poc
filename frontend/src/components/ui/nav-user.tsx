@@ -56,7 +56,6 @@ export function NavUser() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton className="h-8">
-              {/* <User2 className="mr-2 h-4 w-4" /> */}
               {loading ? "Loading..." : (
                 <>
                   <Avatar>
@@ -71,7 +70,7 @@ export function NavUser() {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
 
-          <DropdownMenuContent side="top" align="start" className="w-56">
+          <DropdownMenuContent side="top" align="start" className="w-48">
             <DropdownMenuLabel>
               {username}
               {email ? <div className="text-xs text-muted-foreground">{email}</div> : null}

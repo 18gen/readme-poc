@@ -20,8 +20,8 @@ import { NavSecondary } from "../ui/nav-secondary";
 
 const data = {
   navMain: [
-    { title: "Profile", url: "/navi", icon: User, items: [] },
     { title: "Explore Project", url: "/find", icon: Search, items: [] },
+    { title: "Profile", url: "/navi", icon: User, items: [] },
     { title: "Build/Deploy", url: "/build", icon: Pickaxe, items: [] },
     { title: "Job", url: "/job", icon: Briefcase, items: [] },
     {

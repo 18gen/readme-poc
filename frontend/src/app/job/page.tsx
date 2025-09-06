@@ -190,7 +190,7 @@ export default function JobsBoardPage() {
 
   return (
     // Fit INSIDE SidebarInset: same height, normal flow (not fixed), no overlay
-    <div className="relative h-[calc(100vh-0.5rem)] min-h-0 overflow-hidden bg-background">
+    <div className="relative h-[calc(100vh-0.5rem)] overflow-hidden bg-background">
       <ResizablePanelGroup direction="horizontal" className="h-full">
         {/* Left: Job list */}
         <ResizablePanel minSize={28} defaultSize={34} className="min-w-[320px] overflow-hidden">
@@ -218,7 +218,7 @@ export default function JobsBoardPage() {
         <ResizableHandle withHandle />
 
         {/* Right: Details */}
-        <ResizablePanel minSize={40} defaultSize={66} className="overflow-hidden">
+        <ResizablePanel minSize={40} defaultSize={66} className="overflow-hidden m-3 rounded-lg border">
           <div className="flex h-full min-h-0 flex-col">
             {selected ? (
               <JobDetails job={selected} />
@@ -301,7 +301,6 @@ function JobRow({ job, active, onClick }: { job: Job; active?: boolean; onClick?
             <Badge variant="outline" className="gap-1"><DollarSign className="h-3.5 w-3.5" />{fmtSalary(job.salaryMin, job.salaryMax, job.currency)}</Badge>
           )}
           <Badge variant="secondary" className="gap-1"><ShieldCheck className="h-3.5 w-3.5" />{job.employmentType}</Badge>
-          {typeof job.matchCount === "number" && <Badge variant="outline">{job.matchCount}/{job.matchTotal} スキルマッチ</Badge>}
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" />{job.postedAgo}</span>

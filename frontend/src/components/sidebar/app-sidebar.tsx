@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Code2, User, BookOpen, Search, Pickaxe, Heart } from "lucide-react";
+import { Code2, User, BookOpen, Search, Pickaxe, Briefcase  } from "lucide-react";
 import { NavMain } from "@/components/ui/nav-main";
 import { NavUser } from "@/components/ui/nav-user";
 import {
@@ -16,15 +16,16 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { NavSecondary } from "../ui/nav-secondary";
 
 const data = {
   navMain: [
-    { title: "プロファイル", url: "/navi", icon: User, items: [] },
-    { title: "アプリを探す", url: "/find", icon: Search, items: [] },
-    { title: "ビルド / デプロイ", url: "/build", icon: Pickaxe, items: [] },
-    { title: "お気に入り", url: "/favourite", icon: Heart, items: [] },
+    { title: "Profile", url: "/navi", icon: User, items: [] },
+    { title: "Explore Project", url: "/find", icon: Search, items: [] },
+    { title: "Build/Deploy", url: "/build", icon: Pickaxe, items: [] },
+    { title: "Job", url: "/job", icon: Briefcase, items: [] },
     {
-      title: "ドキュメント",
+      title: "Document",
       url: "/#",
       icon: BookOpen,
       items: [
